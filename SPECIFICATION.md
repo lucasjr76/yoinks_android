@@ -1,5 +1,5 @@
 # Yoinks Android
-## Functional and technical specification · v0.4.0
+## Functional and technical specification · v0.4.1
 
 **English** · [Português](ESPECIFICACAO.md)
 

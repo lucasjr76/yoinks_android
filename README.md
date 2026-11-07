@@ -17,8 +17,9 @@ See the [functional and technical specification](SPECIFICATION.md).
 Get the APK from the [latest release](https://github.com/lucasjr76/yoinks_android/releases/latest).
 It is ARM64 and requires Android 10 or later.
 
-The APK is a debug build signed with a different certificate than 0.2.1.
-Uninstall any previous version before installing it.
+Since 0.4.1, APKs are signed with the project's release key
+(certificate `CN=lucasjr76`), so future versions install over it. Versions
+0.4.0 and earlier used a debug key: uninstall them once before installing 0.4.1.
 
 ## Use
 
@@ -44,6 +45,20 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 Unit tests: `./gradlew :app:testDebugUnitTest`.
+
+### Signed release
+
+Published APKs are signed with the maintainer's release key, kept outside the
+repository in `~/.config/yoinks-android/` (`release.jks` and
+`keystore.properties`). With those files in place:
+
+```sh
+./gradlew :app:assembleRelease -Pabi=arm64-v8a
+# app/build/outputs/apk/release/app-release.apk
+```
+
+Use `-PyoinksKeystore=/path/keystore.properties` for another location. Without
+the key, the release build is unsigned; use the debug build instead.
 
 ## yt-dlp engine
 

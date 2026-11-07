@@ -17,8 +17,10 @@ Consulte a [especificação funcional e técnica](ESPECIFICACAO.md).
 Baixe o APK na [última release](https://github.com/lucasjr76/yoinks_android/releases/latest).
 Ele é ARM64 e requer Android 10 ou superior.
 
-O APK é uma build de depuração assinada com um certificado diferente do 0.2.1.
-Desinstale a versão anterior antes de instalar.
+A partir da 0.4.1, os APKs são assinados com a chave de release do projeto
+(certificado `CN=lucasjr76`), e as próximas versões instalam por cima. As
+versões até a 0.4.0 usavam chave de depuração: desinstale-as uma vez antes de
+instalar a 0.4.1.
 
 ## Usar
 
@@ -44,6 +46,20 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 Testes de unidade: `./gradlew :app:testDebugUnitTest`.
+
+### Release assinada
+
+Os APKs publicados são assinados com a chave de release do mantenedor, guardada
+fora do repositório em `~/.config/yoinks-android/` (`release.jks` e
+`keystore.properties`). Com esses arquivos no lugar:
+
+```sh
+./gradlew :app:assembleRelease -Pabi=arm64-v8a
+# app/build/outputs/apk/release/app-release.apk
+```
+
+Use `-PyoinksKeystore=/caminho/keystore.properties` para outro local. Sem a
+chave, a build de release sai sem assinatura; use a build de depuração.
 
 ## Motor yt-dlp
 
