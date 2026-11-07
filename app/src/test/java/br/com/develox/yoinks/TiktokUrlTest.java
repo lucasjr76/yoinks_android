@@ -2,6 +2,7 @@
 package br.com.develox.yoinks;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -34,6 +35,16 @@ public class TiktokUrlTest {
                 + "]}}}}}}</script></html>";
         assertEquals(List.of("https://cdn.example/1.jpeg", "https://cdn.example/2.jpeg"),
                 MainActivity.tiktokImageUrls(html));
+    }
+
+    @Test public void comparesReleaseTagWithAppVersion() {
+        assertTrue(MainActivity.isNewer("v0.4.0", "0.3.0"));
+        assertTrue(MainActivity.isNewer("v0.3.1", "0.3.0"));
+        assertTrue(MainActivity.isNewer("v1.0", "0.9.9"));
+        assertTrue(MainActivity.isNewer("v0.10.0", "0.9.0"));
+        assertFalse(MainActivity.isNewer("v0.3.0", "0.3.0"));
+        assertFalse(MainActivity.isNewer("v0.2.1", "0.3.0"));
+        assertFalse(MainActivity.isNewer("nightly", "0.3.0"));
     }
 
     @Test public void missingOrBrokenJsonGivesNoImages() {

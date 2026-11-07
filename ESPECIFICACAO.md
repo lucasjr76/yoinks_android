@@ -1,5 +1,5 @@
 # Yoinks Android
-## Especificação funcional e técnica · v0.3.0
+## Especificação funcional e técnica · v0.4.0
 
 [English](SPECIFICATION.md) · **Português**
 
@@ -21,6 +21,7 @@ de arquivos em **Downloads/Yoinks**. O processamento ocorre no aparelho.
 | RF-06 | Arquivo final | Publica a mídia em Downloads/Yoinks e informa o nome registrado pelo Android. |
 | RF-07 | Erros | Indica link inválido no campo. Para erros do motor ou de gravação, exibe o diagnóstico e permite nova tentativa. |
 | RF-08 | Posts de fotos do TikTok | Para links `tiktok.com/@…/photo/…`, o botão de vídeo vira **Baixar fotos (JPG)** e salva cada imagem do post em Downloads/Yoinks. **Baixar áudio MP3** salva a música do post. |
+| RF-09 | Menu ⋮ | **Verificar atualizações** consulta a última release no GitHub e só avisa quando há versão nova, com link para a página da release. **Sobre** mostra versão, autoria ([lucasjr76](https://github.com/lucasjr76/)), link do repositório e crédito ao Yoinks original. |
 
 ### Interface
 

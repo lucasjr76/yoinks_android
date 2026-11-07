@@ -9,12 +9,15 @@ android {
         applicationId 'br.com.develox.yoinks'
         minSdk 29
         targetSdk 34
-        versionCode 4
-        versionName '0.3.0'
+        versionCode 5
+        versionName '0.4.0'
         ndk {
             // -Pabi=arm64-v8a builds the phone-only APK; default keeps the emulator ABI too.
             abiFilters(*((project.findProperty('abi') ?: 'arm64-v8a,x86_64').split(',')))
         }
+    }
+    buildFeatures {
+        buildConfig true
     }
     packaging {
         jniLibs {

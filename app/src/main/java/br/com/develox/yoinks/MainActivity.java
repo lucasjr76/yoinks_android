@@ -2,6 +2,8 @@
 package br.com.develox.yoinks;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ContentValues;
@@ -10,13 +12,18 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.text.Editable;
+import android.text.SpannableString;
+import android.text.method.LinkMovementMethod;
+import android.text.util.Linkify;
 import android.text.TextWatcher;
 import android.util.Patterns;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.yausername.ffmpeg.FFmpeg;
 import com.yausername.youtubedl_android.YoutubeDL;
@@ -55,6 +62,11 @@ public final class MainActivity extends Activity {
     // The mobile page omits the post JSON; the desktop page includes it.
     private static final String DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
             + "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
+    private static final String AUTHOR_URL = "https://github.com/lucasjr76/";
+    private static final String REPO_URL = "https://github.com/lucasjr76/yoinks_android";
+    private static final String LATEST_RELEASE_API =
+            "https://api.github.com/repos/lucasjr76/yoinks_android/releases/latest";
+    private static final Pattern VERSION = Pattern.compile("(\\d+)(?:\\.(\\d+))?(?:\\.(\\d+))?");
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private EditText link;
     private Button video;
@@ -73,6 +85,7 @@ public final class MainActivity extends Activity {
         progress = findViewById(R.id.progress);
 
         findViewById(R.id.paste).setOnClickListener(view -> pasteLink());
+        findViewById(R.id.menu).setOnClickListener(this::showMenu);
         link.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -335,6 +348,107 @@ public final class MainActivity extends Activity {
         } catch (IOException | RuntimeException error) {
             getContentResolver().delete(uri, null, null);
             throw error;
+        }
+    }
+
+    private void showMenu(View anchor) {
+        PopupMenu menu = new PopupMenu(this, anchor);
+        menu.getMenu().add(0, 1, 0, "Verificar atualizações");
+        menu.getMenu().add(0, 2, 1, "Sobre");
+        menu.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == 1) checkForUpdates();
+            else showAbout();
+            return true;
+        });
+        menu.show();
+    }
+
+    /** Only notifies: looks up the latest GitHub release and links to its page. */
+    private void checkForUpdates() {
+        Toast.makeText(this, "Verificando atualizações…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            String tag = null;
+            String page = REPO_URL + "/releases/latest";
+            try {
+                File json = File.createTempFile("release", ".json", getCacheDir());
+                try {
+                    fetch(LATEST_RELEASE_API, json);
+                    JSONObject release = new JSONObject(
+                            new String(Files.readAllBytes(json.toPath()), StandardCharsets.UTF_8));
+                    tag = release.getString("tag_name");
+                    String html = release.optString("html_url");
+                    if (html.startsWith(REPO_URL + "/")) page = html;
+                } finally {
+                    json.delete();
+                }
+            } catch (IOException | JSONException error) {
+                tag = null;
+            }
+            String latest = tag;
+            String url = page;
+            runOnUiThread(() -> showUpdateResult(latest, url));
+        }).start();
+    }
+
+    private void showUpdateResult(String latest, String url) {
+        if (isFinishing() || isDestroyed()) return;
+        String current = BuildConfig.VERSION_NAME;
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this).setTitle("Atualizações");
+        if (latest == null) {
+            dialog.setMessage("Não foi possível verificar agora. Confira a conexão e tente de novo.");
+        } else if (isNewer(latest, current)) {
+            dialog.setMessage("A versão " + latest + " está disponível no GitHub.\n"
+                    + "Você usa a versão " + current + ".");
+            dialog.setPositiveButton("Ver no GitHub", (d, which) -> openLink(url));
+        } else {
+            dialog.setMessage("Você já usa a versão mais recente (" + current + ").");
+        }
+        dialog.setNegativeButton("Fechar", null).show();
+    }
+
+    /** True when release tag latest (e.g. "v0.4.0") is newer than version current. */
+    static boolean isNewer(String latest, String current) {
+        int[] a = versionParts(latest);
+        int[] b = versionParts(current);
+        for (int i = 0; i < 3; i++) if (a[i] != b[i]) return a[i] > b[i];
+        return false;
+    }
+
+    private static int[] versionParts(String version) {
+        int[] parts = new int[3];
+        Matcher match = VERSION.matcher(version);
+        if (match.find()) {
+            for (int i = 0; i < 3; i++) {
+                String part = match.group(i + 1);
+                parts[i] = part == null ? 0 : Integer.parseInt(part);
+            }
+        }
+        return parts;
+    }
+
+    private void showAbout() {
+        SpannableString text = new SpannableString("Versão " + BuildConfig.VERSION_NAME
+                + "\n\nCriado por lucasjr76\n" + AUTHOR_URL
+                + "\n\nCódigo-fonte, novidades e downloads:\n" + REPO_URL
+                + "\n\nIniciativa baseada no Yoinks de Pablo Stanley:\n"
+                + "https://github.com/pablostanley/yoinks"
+                + "\n\nSoftware livre sob GPL-3.0. Usa yt-dlp, FFmpeg e youtubedl-android.");
+        Linkify.addLinks(text, Linkify.WEB_URLS);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Yoinks Android")
+                .setMessage(text)
+                .setPositiveButton("Abrir no GitHub", (d, which) -> openLink(REPO_URL))
+                .setNegativeButton("Fechar", null)
+                .show();
+        TextView message = dialog.findViewById(android.R.id.message);
+        if (message != null) message.setMovementMethod(LinkMovementMethod.getInstance());
+    }
+
+    private void openLink(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (ActivityNotFoundException error) {
+            Toast.makeText(this, url, Toast.LENGTH_LONG).show();
         }
     }
 
