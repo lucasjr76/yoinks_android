@@ -1,0 +1,5 @@
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/canvas" />
+    <foreground android:drawable="@drawable/yoinks_mark" />
+    <monochrome android:drawable="@drawable/yoinks_monochrome" />
+</adaptive-icon>

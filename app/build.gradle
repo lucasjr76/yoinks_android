@@ -1,0 +1,34 @@
+plugins {
+    id 'com.android.application' version '8.7.3'
+}
+android {
+    namespace 'br.com.develox.yoinks'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'br.com.develox.yoinks'
+        minSdk 29
+        targetSdk 34
+        versionCode 4
+        versionName '0.3.0'
+        ndk {
+            // -Pabi=arm64-v8a builds the phone-only APK; default keeps the emulator ABI too.
+            abiFilters(*((project.findProperty('abi') ?: 'arm64-v8a,x86_64').split(',')))
+        }
+    }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+dependencies {
+    implementation 'io.github.junkfood02.youtubedl-android:library:0.18.1'
+    implementation 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1'
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}
