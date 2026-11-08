@@ -5,7 +5,7 @@
 Uma iniciativa Android baseada no [Yoinks de Pablo Stanley](https://github.com/pablostanley/yoinks)
 ("yoink any video from your terminal"). Leva a mesma ideia para o celular:
 baixa um vídeo MP4 ou extrai um áudio MP3 com yt-dlp e FFmpeg, tudo no
-aparelho. Também salva as imagens de posts de fotos do TikTok.
+aparelho. Também salva as imagens de posts de fotos do TikTok e baixa vídeos do Threads.
 
 Este é um projeto independente, sem afiliação ou endosso do autor do Yoinks
 original.
@@ -32,7 +32,8 @@ instalar a 0.4.1.
    e salva as imagens do post.
 
 Um download por vez, qualidade automática e interface em português. A
-cobertura de sites depende da versão embutida do yt-dlp.
+cobertura de sites depende do yt-dlp: quando um site parar de funcionar, use
+**⋮ › Atualizar motor de download** para obter o yt-dlp mais recente sem novo APK.
 
 ## Compilar
 
@@ -65,7 +66,9 @@ chave, a build de release sai sem assinatura; use a build de depuração.
 
 O recurso `app/src/main/res/raw/ytdlp` substitui a cópia padrão da biblioteca
 pela versão portátil [2026.10.26](https://github.com/yt-dlp/yt-dlp/releases/tag/2026.10.26).
-O SHA-256 do arquivo corresponde ao publicado na release:
+Ao trocar esse arquivo, atualize também `BUNDLED_YTDLP` em `MainActivity.java`,
+para que as instalações existentes passem a usar a nova cópia. O SHA-256 do
+arquivo corresponde ao publicado na release:
 
 ```text
 e51e69e89489f199530f13d32a4342da3ddb2cf34842f364603a066db05afbf3

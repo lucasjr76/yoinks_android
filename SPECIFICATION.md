@@ -1,5 +1,5 @@
 # Yoinks Android
-## Functional and technical specification · v0.4.1
+## Functional and technical specification · v0.5.0
 
 **English** · [Português](ESPECIFICACAO.md)
 
@@ -22,6 +22,8 @@ MP4 video or MP3 audio. The file shows up in the file manager under
 | FR-07 | Errors | Flags an invalid link on the field. For engine or write errors, shows the diagnostic and allows a retry. |
 | FR-08 | TikTok photo posts | For `tiktok.com/@…/photo/…` links, the video button becomes **Baixar fotos (JPG)** (Download photos) and saves every image of the post to Downloads/Yoinks. **Baixar áudio MP3** saves the post's music. |
 | FR-09 | ⋮ menu | **Verificar atualizações** (Check for updates) looks up the latest GitHub release and only notifies when a newer version exists, linking to the release page. **Sobre** (About) shows the version, authorship ([lucasjr76](https://github.com/lucasjr76/)), the repository link and credit to the original Yoinks. |
+| FR-10 | Threads videos | `threads.com`/`threads.net` links, including short `/share/` links, work with **Baixar vídeo MP4** and **Baixar áudio MP3**. The app reads the video from the post's public page and hands the direct MP4 to yt-dlp. |
+| FR-11 | Download engine | **⋮ › Atualizar motor de download** (Update download engine) fetches the latest stable yt-dlp from GitHub, without a new APK. When an APK carries a newer yt-dlp than the installed one, the app switches to it. Download errors suggest updating the engine, and **Sobre** (About) shows the version in use. |
 
 ### Interface
 
@@ -49,7 +51,9 @@ The app handles one download at a time, with the app open. Quality is picked
 automatically. Site coverage depends on the bundled yt-dlp extractors and may
 vary by platform. TikTok photos are read directly from the post page, not
 through yt-dlp, and depend on that page's current structure. Short
-`vm.tiktok.com` links to photo posts are not supported yet. In-app playback is
+`vm.tiktok.com` links to photo posts are not supported yet. Threads videos
+are also read directly from the post page, since the bundled yt-dlp has no
+Threads extractor; only the post's first video is downloaded. In-app playback is
 the next planned step.
 
 ### On-device acceptance criteria

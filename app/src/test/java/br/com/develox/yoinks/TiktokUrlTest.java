@@ -37,6 +37,20 @@ public class TiktokUrlTest {
                 MainActivity.tiktokImageUrls(html));
     }
 
+    @Test public void readsThreadsVideoOfTheRequestedPost() {
+        String html = "<script type=\"application/json\" data-sjs>{\"x\":1}</script>"
+                + "<script type=\"application/json\" data-sjs>{\"require\":[[\"a\",{\"result\":{\"data\":"
+                + "{\"media\":{\"code\":\"POST1\",\"video_versions\":null,\"text_post_app_info\":"
+                + "{\"linked_inline_media\":{\"media_type\":2,\"video_versions\":["
+                + "{\"type\":102,\"width\":320,\"url\":\"https:\\/\\/cdn\\/small.mp4\"},"
+                + "{\"type\":101,\"width\":720,\"url\":\"https:\\/\\/cdn\\/big.mp4\"}]}}},"
+                + "\"reply\":{\"code\":\"OTHER\",\"video_versions\":[{\"width\":999,\"url\":\"https://cdn/other.mp4\"}]}"
+                + "}}}]]}</script>";
+        assertEquals(List.of("https://cdn/big.mp4"), MainActivity.threadsVideoUrls(html, "POST1"));
+        assertTrue(MainActivity.threadsVideoUrls(html, "MISSING").isEmpty());
+        assertTrue(MainActivity.threadsVideoUrls("<html></html>", "POST1").isEmpty());
+    }
+
     @Test public void comparesReleaseTagWithAppVersion() {
         assertTrue(MainActivity.isNewer("v0.4.0", "0.3.0"));
         assertTrue(MainActivity.isNewer("v0.3.1", "0.3.0"));
@@ -45,6 +59,9 @@ public class TiktokUrlTest {
         assertFalse(MainActivity.isNewer("v0.3.0", "0.3.0"));
         assertFalse(MainActivity.isNewer("v0.2.1", "0.3.0"));
         assertFalse(MainActivity.isNewer("nightly", "0.3.0"));
+        // yt-dlp date versions
+        assertTrue(MainActivity.isNewer("2026.11.05", "2026.10.26"));
+        assertFalse(MainActivity.isNewer("2026.10.26", "2026.10.26"));
     }
 
     @Test public void missingOrBrokenJsonGivesNoImages() {

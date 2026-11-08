@@ -8,6 +8,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ContentValues;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -32,6 +33,7 @@ import com.yausername.youtubedl_android.YoutubeDLRequest;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,8 +45,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.regex.Matcher;
@@ -67,6 +73,25 @@ public final class MainActivity extends Activity {
     private static final String LATEST_RELEASE_API =
             "https://api.github.com/repos/lucasjr76/yoinks_android/releases/latest";
     private static final Pattern VERSION = Pattern.compile("(\\d+)(?:\\.(\\d+))?(?:\\.(\\d+))?");
+    private static final String TIKTOK_REFERER = "https://www.tiktok.com/";
+    // yt-dlp has no Threads extractor. With these browser headers the post page embeds its
+    // media JSON; the video's direct MP4 URL is then handed to yt-dlp like any other link.
+    // ponytail: scrapes Threads' page JSON; breaks if Meta changes it. Drop once yt-dlp
+    // ships a Threads extractor (PR yt-dlp/yt-dlp#9852).
+    private static final Pattern THREADS = Pattern.compile(
+            "^https?://(?:www\\.)?threads\\.(?:com|net)/", Pattern.CASE_INSENSITIVE);
+    private static final Pattern THREADS_CODE = Pattern.compile("/post/([\\w-]+)");
+    private static final Pattern THREADS_OG_URL = Pattern.compile(
+            "property=\"og:url\"\\s+content=\"[^\"]*/post/([\\w-]+)");
+    private static final Pattern JSON_SCRIPT = Pattern.compile(
+            "<script type=\"application/json\"[^>]*>(.*?)</script>", Pattern.DOTALL);
+    private static final String[] BROWSER_PAGE = {
+            "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language", "en-us,en;q=0.5",
+            "Sec-Fetch-Mode", "navigate"};
+    // Version of app/src/main/res/raw/ytdlp; bump it together with that file.
+    private static final String BUNDLED_YTDLP = "2026.10.26";
+    private static boolean engineChecked;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private EditText link;
     private Button video;
@@ -160,22 +185,29 @@ public final class MainActivity extends Activity {
         String photo = tiktokPhotoAsVideo(typed);
         String url = photo != null ? photo : typed;
         boolean photos = photo != null && !extractAudio;
+        runJob("Preparando download…", () -> photos ? downloadPhotos(url)
+                : "Salvo em Downloads/Yoinks/" + download(url, extractAudio),
+                "Falha no download.\n", "\n\nSe o site mudou, toque em ⋮ › Atualizar motor de "
+                        + "download e tente de novo.");
+    }
+
+    /** Runs job on the worker with both buttons disabled and shows its result in the status. */
+    private void runJob(String preparing, Callable<String> job, String errorTitle, String errorHint) {
         video.setEnabled(false);
         audio.setEnabled(false);
         progress.setVisibility(View.VISIBLE);
         progress.setProgress(0);
         progress.setIndeterminate(true);
         status.setTextColor(getColor(R.color.muted));
-        status.setText("Preparando download…");
+        status.setText(preparing);
         worker.execute(() -> {
             String result;
             boolean failed = false;
             try {
-                result = photos ? downloadPhotos(url)
-                        : "Salvo em Downloads/Yoinks/" + download(url, extractAudio);
+                result = job.call();
             } catch (Exception error) {
                 failed = true;
-                result = "Falha no download.\n" + error.getMessage();
+                result = errorTitle + error.getMessage() + errorHint;
             }
             String message = result;
             boolean showError = failed;
@@ -190,18 +222,82 @@ public final class MainActivity extends Activity {
         });
     }
 
-    private String download(String url, boolean extractAudio) throws Exception {
+    /**
+     * Prepares yt-dlp. The library copies the APK's yt-dlp only when none is installed, so an
+     * app update would keep an older engine; replace it when the APK carries a newer one.
+     * Runs on the worker only, before the first init of this process.
+     */
+    private YoutubeDL engine() throws Exception {
         YoutubeDL engine = YoutubeDL.getInstance();
+        if (!engineChecked) {
+            SharedPreferences prefs = getSharedPreferences("yoinks", MODE_PRIVATE);
+            String installed = newestOf(prefs.getString("bundledEngine", null),
+                    engine.version(getApplicationContext()));
+            if (installed == null || isNewer(BUNDLED_YTDLP, installed)) {
+                File dir = new File(getNoBackupFilesDir(), "youtubedl-android/yt-dlp");
+                File[] files = dir.listFiles();
+                if (files != null) for (File file : files) file.delete();
+                dir.delete();
+                prefs.edit().putString("bundledEngine", BUNDLED_YTDLP).apply();
+            }
+            engineChecked = true;
+        }
         engine.init(getApplicationContext());
+        return engine;
+    }
+
+    private static String newestOf(String a, String b) {
+        if (a == null) return b;
+        if (b == null) return a;
+        return isNewer(b, a) ? b : a;
+    }
+
+    /** yt-dlp version in use: the one installed by an engine update, else the APK's. */
+    private String engineVersion() {
+        String updated = YoutubeDL.getInstance().version(getApplicationContext());
+        return updated != null && isNewer(updated, BUNDLED_YTDLP) ? updated : BUNDLED_YTDLP;
+    }
+
+    private void updateEngine() {
+        runJob("Atualizando o motor de download…", () -> {
+            YoutubeDL.UpdateStatus result = engine().updateYoutubeDL(
+                    getApplicationContext(), YoutubeDL.UpdateChannel._STABLE);
+            return result == YoutubeDL.UpdateStatus.DONE
+                    ? "Motor atualizado para o yt-dlp " + engineVersion() + "."
+                    : "O motor já está na versão mais recente (yt-dlp " + engineVersion() + ").";
+        }, "Não foi possível atualizar o motor.\n", "");
+    }
+
+    private String download(String url, boolean extractAudio) throws Exception {
+        YoutubeDL engine = engine();
         FFmpeg.getInstance().init(getApplicationContext());
         File temp = Files.createTempDirectory(getCacheDir().toPath(), "yoinks-").toFile();
         try {
+            String name = "%(title)s [%(id)s].%(ext)s";
+            if (THREADS.matcher(url).find()) {
+                runOnUiThread(() -> status.setText("Lendo o post do Threads…"));
+                File page = new File(temp, "page.html");
+                fetch(url, page, BROWSER_PAGE);
+                String html = new String(Files.readAllBytes(page.toPath()), StandardCharsets.UTF_8);
+                page.delete();
+                Matcher og = THREADS_OG_URL.matcher(html);
+                Matcher typed = THREADS_CODE.matcher(url);
+                String code = og.find() ? og.group(1) : typed.find() ? typed.group(1) : null;
+                List<String> videos = code == null ? new ArrayList<>() : threadsVideoUrls(html, code);
+                if (videos.isEmpty()) {
+                    throw new IOException("Não foi encontrado vídeo neste post do Threads. "
+                            + "Confira se o post é público e tem vídeo.");
+                }
+                // ponytail: first video only; loop over videos if carousel posts matter.
+                url = videos.get(0);
+                name = "Threads [" + code + "].%(ext)s";
+            }
             YoutubeDLRequest request = new YoutubeDLRequest(url);
             request.addOption("--no-playlist");
             request.addOption("--no-mtime");
             request.addOption("--socket-timeout", "20");
             request.addOption("--trim-filenames", "140");
-            request.addOption("-o", new File(temp, "%(title)s [%(id)s].%(ext)s").getPath());
+            request.addOption("-o", new File(temp, name).getPath());
             if (extractAudio) {
                 request.addOption("-f", "bestaudio/best");
                 request.addOption("-x");
@@ -236,6 +332,67 @@ public final class MainActivity extends Activity {
         }
     }
 
+    /** Direct MP4 URLs of the videos in Threads post code, read from its page HTML. */
+    static List<String> threadsVideoUrls(String html, String code) {
+        Set<String> urls = new LinkedHashSet<>();
+        Matcher script = JSON_SCRIPT.matcher(html);
+        while (script.find() && urls.isEmpty()) {
+            String json = script.group(1);
+            if (!json.contains("\"code\":\"" + code + "\"")) continue;
+            try {
+                JSONObject post = findPost(new JSONTokener(json).nextValue(), code);
+                if (post != null) collectVideos(post, urls);
+            } catch (JSONException ignored) {
+                // Not the data we look for; try the next script.
+            }
+        }
+        return new ArrayList<>(urls);
+    }
+
+    private static JSONObject findPost(Object node, String code) {
+        if (node instanceof JSONObject) {
+            JSONObject object = (JSONObject) node;
+            if (code.equals(object.optString("code"))) return object;
+            for (Iterator<String> keys = object.keys(); keys.hasNext(); ) {
+                JSONObject found = findPost(object.opt(keys.next()), code);
+                if (found != null) return found;
+            }
+        } else if (node instanceof JSONArray) {
+            JSONArray array = (JSONArray) node;
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject found = findPost(array.opt(i), code);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    /** Adds the widest version of every video under node (post, carousel or inline media). */
+    private static void collectVideos(Object node, Set<String> urls) {
+        if (node instanceof JSONObject) {
+            JSONObject object = (JSONObject) node;
+            JSONArray versions = object.optJSONArray("video_versions");
+            String best = null;
+            int bestWidth = -1;
+            for (int i = 0; versions != null && i < versions.length(); i++) {
+                JSONObject version = versions.optJSONObject(i);
+                String url = version == null ? "" : version.optString("url");
+                if (url.startsWith("https://") && version.optInt("width") > bestWidth) {
+                    best = url;
+                    bestWidth = version.optInt("width");
+                }
+            }
+            if (best != null) urls.add(best);
+            for (Iterator<String> keys = object.keys(); keys.hasNext(); ) {
+                String key = keys.next();
+                if (!key.equals("video_versions")) collectVideos(object.opt(key), urls);
+            }
+        } else if (node instanceof JSONArray) {
+            JSONArray array = (JSONArray) node;
+            for (int i = 0; i < array.length(); i++) collectVideos(array.opt(i), urls);
+        }
+    }
+
     /** Image URLs of a TikTok photo post, read from the desktop page HTML. Empty if not found. */
     static List<String> tiktokImageUrls(String html) {
         List<String> urls = new ArrayList<>();
@@ -262,17 +419,22 @@ public final class MainActivity extends Activity {
         return urls;
     }
 
-    /** Downloads url into target and returns the response Content-Type. */
-    private static String fetch(String url, File target) throws IOException {
+    /**
+     * Downloads url into target, following redirects, and returns the response Content-Type.
+     * headers holds extra request header name/value pairs.
+     */
+    private static String fetch(String url, File target, String... headers) throws IOException {
         HttpURLConnection http = (HttpURLConnection) new URL(url).openConnection();
         try {
             http.setConnectTimeout(20_000);
             http.setReadTimeout(20_000);
             http.setRequestProperty("User-Agent", DESKTOP_UA);
-            http.setRequestProperty("Referer", "https://www.tiktok.com/");
+            for (int i = 0; i + 1 < headers.length; i += 2) {
+                http.setRequestProperty(headers[i], headers[i + 1]);
+            }
             int code = http.getResponseCode();
             if (code != HttpURLConnection.HTTP_OK) {
-                throw new IOException("O TikTok respondeu HTTP " + code + ".");
+                throw new IOException("O servidor respondeu HTTP " + code + ".");
             }
             try (InputStream input = http.getInputStream()) {
                 Files.copy(input, target.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -288,7 +450,7 @@ public final class MainActivity extends Activity {
         File temp = Files.createTempDirectory(getCacheDir().toPath(), "yoinks-").toFile();
         try {
             File page = new File(temp, "page.html");
-            fetch(url, page);
+            fetch(url, page, "Referer", TIKTOK_REFERER);
             List<String> images = tiktokImageUrls(
                     new String(Files.readAllBytes(page.toPath()), StandardCharsets.UTF_8));
             if (images.isEmpty()) {
@@ -304,7 +466,7 @@ public final class MainActivity extends Activity {
                     status.setText("Baixando foto " + (done + 1) + " de " + images.size() + "…");
                 });
                 File image = new File(temp, "image");
-                String type = fetch(images.get(i), image);
+                String type = fetch(images.get(i), image, "Referer", TIKTOK_REFERER);
                 boolean webp = type != null && type.startsWith("image/webp");
                 File named = new File(temp, String.format(Locale.ROOT, "TikTok [%s] %02d.%s",
                         id, i + 1, webp ? "webp" : "jpg"));
@@ -354,9 +516,13 @@ public final class MainActivity extends Activity {
     private void showMenu(View anchor) {
         PopupMenu menu = new PopupMenu(this, anchor);
         menu.getMenu().add(0, 1, 0, "Verificar atualizações");
-        menu.getMenu().add(0, 2, 1, "Sobre");
+        menu.getMenu().add(0, 3, 1, "Atualizar motor de download");
+        menu.getMenu().add(0, 2, 2, "Sobre");
+        // Engine updates replace yt-dlp's files; never while a download runs.
+        menu.getMenu().findItem(3).setEnabled(video.isEnabled());
         menu.setOnMenuItemClickListener(item -> {
             if (item.getItemId() == 1) checkForUpdates();
+            else if (item.getItemId() == 3) updateEngine();
             else showAbout();
             return true;
         });
@@ -432,6 +598,7 @@ public final class MainActivity extends Activity {
                 + "\n\nCódigo-fonte, novidades e downloads:\n" + REPO_URL
                 + "\n\nIniciativa baseada no Yoinks de Pablo Stanley:\n"
                 + "https://github.com/pablostanley/yoinks"
+                + "\n\nMotor de download: yt-dlp " + engineVersion()
                 + "\n\nSoftware livre sob GPL-3.0. Usa yt-dlp, FFmpeg e youtubedl-android.");
         Linkify.addLinks(text, Linkify.WEB_URLS);
         AlertDialog dialog = new AlertDialog.Builder(this)

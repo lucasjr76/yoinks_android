@@ -1,5 +1,5 @@
 # Yoinks Android
-## Especificação funcional e técnica · v0.4.1
+## Especificação funcional e técnica · v0.5.0
 
 [English](SPECIFICATION.md) · **Português**
 
@@ -22,6 +22,8 @@ de arquivos em **Downloads/Yoinks**. O processamento ocorre no aparelho.
 | RF-07 | Erros | Indica link inválido no campo. Para erros do motor ou de gravação, exibe o diagnóstico e permite nova tentativa. |
 | RF-08 | Posts de fotos do TikTok | Para links `tiktok.com/@…/photo/…`, o botão de vídeo vira **Baixar fotos (JPG)** e salva cada imagem do post em Downloads/Yoinks. **Baixar áudio MP3** salva a música do post. |
 | RF-09 | Menu ⋮ | **Verificar atualizações** consulta a última release no GitHub e só avisa quando há versão nova, com link para a página da release. **Sobre** mostra versão, autoria ([lucasjr76](https://github.com/lucasjr76/)), link do repositório e crédito ao Yoinks original. |
+| RF-10 | Vídeos do Threads | Links `threads.com`/`threads.net`, inclusive os curtos `/share/`, funcionam com **Baixar vídeo MP4** e **Baixar áudio MP3**. O app lê o vídeo da página pública do post e entrega o MP4 direto ao yt-dlp. |
+| RF-11 | Motor de download | **⋮ › Atualizar motor de download** baixa o yt-dlp estável mais recente do GitHub, sem novo APK. Quando um APK traz um yt-dlp mais novo que o instalado, o app passa a usá-lo. Falhas de download sugerem atualizar o motor, e **Sobre** mostra a versão em uso. |
 
 ### Interface
 
@@ -49,7 +51,9 @@ oferece seleção automática de qualidade. A cobertura de sites depende dos
 extratores do yt-dlp incluído e pode variar conforme a plataforma. As fotos
 do TikTok são lidas diretamente da página do post, sem o yt-dlp, e dependem
 da estrutura atual dessa página. Links curtos `vm.tiktok.com` de posts de
-fotos ainda não são suportados. Reprodução local pelo próprio Yoinks é a
+fotos ainda não são suportados. Os vídeos do Threads também são lidos
+diretamente da página do post, pois o yt-dlp incluído não tem extrator para o
+Threads; só o primeiro vídeo do post é baixado. Reprodução local pelo próprio Yoinks é a
 próxima etapa prevista.
 
 ### Critérios de aceite no aparelho
