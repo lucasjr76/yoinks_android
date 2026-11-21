@@ -1,5 +1,5 @@
 # Yoinks Android
-## Functional and technical specification · v0.5.0
+## Functional and technical specification · v0.6.0
 
 **English** · [Português](ESPECIFICACAO.md)
 
@@ -24,6 +24,7 @@ MP4 video or MP3 audio. The file shows up in the file manager under
 | FR-09 | ⋮ menu | **Verificar atualizações** (Check for updates) looks up the latest GitHub release and only notifies when a newer version exists, linking to the release page. **Sobre** (About) shows the version, authorship ([lucasjr76](https://github.com/lucasjr76/)), the repository link and credit to the original Yoinks. |
 | FR-10 | Threads videos | `threads.com`/`threads.net` links, including short `/share/` links, work with **Baixar vídeo MP4** and **Baixar áudio MP3**. The app reads the video from the post's public page and hands the direct MP4 to yt-dlp. |
 | FR-11 | Download engine | **⋮ › Atualizar motor de download** (Update download engine) fetches the latest stable yt-dlp from GitHub, without a new APK. When an APK carries a newer yt-dlp than the installed one, the app switches to it. Download errors suggest updating the engine, and **Sobre** (About) shows the version in use. |
+| FR-12 | Reddit videos and GIFs | Post links (`reddit.com/…/comments/…`, `redd.it/…`, `/s/…` share links) and media links (`v.redd.it`, `i.redd.it/….gif`) work. Videos download as MP4 or MP3 through the `v.redd.it` HLS playlist. GIFs become phone-compatible H.264 MP4; GIFs have no audio, so MP3 explains that. |
 
 ### Interface
 
@@ -53,7 +54,9 @@ vary by platform. TikTok photos are read directly from the post page, not
 through yt-dlp, and depend on that page's current structure. Short
 `vm.tiktok.com` links to photo posts are not supported yet. Threads videos
 are also read directly from the post page, since the bundled yt-dlp has no
-Threads extractor; only the post's first video is downloaded. In-app playback is
+Threads extractor; only the post's first video is downloaded. Reddit blocks yt-dlp's extractor
+without browser impersonation, which Android lacks; the app reads the post from
+Reddit's embed page. Galleries and photo-only posts are not downloaded. In-app playback is
 the next planned step.
 
 ### On-device acceptance criteria

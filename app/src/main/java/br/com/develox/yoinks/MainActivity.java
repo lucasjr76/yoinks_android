@@ -85,6 +85,17 @@ public final class MainActivity extends Activity {
             "property=\"og:url\"\\s+content=\"[^\"]*/post/([\\w-]+)");
     private static final Pattern JSON_SCRIPT = Pattern.compile(
             "<script type=\"application/json\"[^>]*>(.*?)</script>", Pattern.DOTALL);
+    private static final Pattern REDDIT = Pattern.compile(
+            "^https?://(?:[\\w-]+\\.)?(?:reddit\\.com|redd\\.it)/", Pattern.CASE_INSENSITIVE);
+    private static final Pattern REDDIT_POST = Pattern.compile(
+            "/comments/(\\w+)|^https?://redd\\.it/(\\w+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern REDDIT_VIDEO = Pattern.compile(
+            "^https?://v\\.redd\\.it/(\\w+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern REDDIT_GIF = Pattern.compile(
+            "^https?://i\\.redd\\.it/[^?#]+\\.gif(?:[?#]|$)", Pattern.CASE_INSENSITIVE);
+    // ponytail: scrapes Reddit's embed page; breaks if Reddit changes it.
+    private static final Pattern REDDIT_SCREEN = Pattern.compile(
+            "<shreddit-screenview-data data=\"([^\"]*)\"");
     private static final String[] BROWSER_PAGE = {
             "Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language", "en-us,en;q=0.5",
@@ -274,6 +285,7 @@ public final class MainActivity extends Activity {
         File temp = Files.createTempDirectory(getCacheDir().toPath(), "yoinks-").toFile();
         try {
             String name = "%(title)s [%(id)s].%(ext)s";
+            boolean gif = false;
             if (THREADS.matcher(url).find()) {
                 runOnUiThread(() -> status.setText("Lendo o post do Threads…"));
                 File page = new File(temp, "page.html");
@@ -291,6 +303,15 @@ public final class MainActivity extends Activity {
                 // ponytail: first video only; loop over videos if carousel posts matter.
                 url = videos.get(0);
                 name = "Threads [" + code + "].%(ext)s";
+            } else if (REDDIT.matcher(url).find()) {
+                runOnUiThread(() -> status.setText("Lendo o post do Reddit…"));
+                String[] media = resolveReddit(url, temp);
+                url = media[0];
+                name = "Reddit [" + media[1] + "].%(ext)s";
+                gif = REDDIT_GIF.matcher(url).find();
+                if (gif && extractAudio) {
+                    throw new IOException("Este GIF não tem áudio. Use Baixar vídeo MP4.");
+                }
             }
             YoutubeDLRequest request = new YoutubeDLRequest(url);
             request.addOption("--no-playlist");
@@ -302,8 +323,17 @@ public final class MainActivity extends Activity {
                 request.addOption("-f", "bestaudio/best");
                 request.addOption("-x");
                 request.addOption("--audio-format", "mp3");
+            } else if (gif) {
+                // GIF to an H.264 MP4 phones can play: 4:2:0 chroma needs even dimensions.
+                request.addOption("-f", "b/bv");
+                request.addOption("--recode-video", "mp4");
+                request.addOption("--postprocessor-args",
+                        "VideoConvertor:-pix_fmt yuv420p -vf scale=trunc(iw/2)*2:trunc(ih/2)*2");
             } else {
-                request.addOption("-f", "bv[ext=mp4][vcodec^=avc1]+ba[ext=m4a]/b[ext=mp4]");
+                // H.264 + M4A first; then H.264 with any audio (Reddit HLS), a combined MP4,
+                // and finally H.264 alone for silent videos.
+                request.addOption("-f", "bv[ext=mp4][vcodec^=avc1]+ba[ext=m4a]"
+                        + "/bv[vcodec^=avc1]+ba/b[ext=mp4]/bv[vcodec^=avc1]");
                 request.addOption("--merge-output-format", "mp4");
             }
             runOnUiThread(() -> status.setText("Baixando…"));
@@ -329,6 +359,76 @@ public final class MainActivity extends Activity {
             File[] files = temp.listFiles();
             if (files != null) for (File file : files) file.delete();
             temp.delete();
+        }
+    }
+
+    /**
+     * Turns a Reddit link into {media URL for yt-dlp, id for the file name}. yt-dlp's Reddit
+     * extractor needs browser impersonation, unavailable on Android, so the post is read from
+     * its embed page, which is not blocked, and v.redd.it videos go through their HLS playlist.
+     */
+    private static String[] resolveReddit(String url, File temp) throws IOException {
+        Matcher video = REDDIT_VIDEO.matcher(url);
+        if (video.find()) return new String[]{redditHls(video.group(1)), video.group(1)};
+        if (REDDIT_GIF.matcher(url).find()) {
+            String file = url.replaceAll("[?#].*", "");
+            return new String[]{url, file.substring(file.lastIndexOf('/') + 1).replace(".gif", "")};
+        }
+        String id = redditPostId(url);
+        if (id == null) id = redditPostId(redirectTarget(url)); // share links: /r/<sub>/s/<code>
+        if (id == null) throw new IOException("Não foi possível identificar o post neste link do Reddit.");
+        File page = new File(temp, "page.html");
+        fetch("https://embed.reddit.com/r/x/comments/" + id + "/", page, BROWSER_PAGE);
+        String media = redditMediaUrl(new String(Files.readAllBytes(page.toPath()), StandardCharsets.UTF_8));
+        page.delete();
+        if (media == null) throw new IOException("Este post do Reddit não tem vídeo nem GIF.");
+        video = REDDIT_VIDEO.matcher(media);
+        return new String[]{video.find() ? redditHls(video.group(1)) : media, id};
+    }
+
+    private static String redditHls(String videoId) {
+        return "https://v.redd.it/" + videoId + "/HLSPlaylist.m3u8";
+    }
+
+    /** Post id of a reddit.com/.../comments/<id> or redd.it/<id> link, or null. */
+    static String redditPostId(String url) {
+        Matcher post = REDDIT_POST.matcher(url);
+        return post.find() ? (post.group(1) != null ? post.group(1) : post.group(2)) : null;
+    }
+
+    /** Video or GIF URL of a post, read from its embed page; null for other kinds of post. */
+    static String redditMediaUrl(String html) {
+        Matcher data = REDDIT_SCREEN.matcher(html);
+        if (!data.find()) return null;
+        try {
+            JSONObject post = new JSONObject(unescapeHtml(data.group(1))).optJSONObject("post");
+            String url = post == null ? "" : post.optString("url");
+            if (!url.startsWith("https://")) return null;
+            boolean media = REDDIT_VIDEO.matcher(url).find() || REDDIT_GIF.matcher(url).find()
+                    || "video".equals(post.optString("type"));
+            return media ? url : null;
+        } catch (JSONException error) {
+            return null;
+        }
+    }
+
+    static String unescapeHtml(String text) {
+        return text.replace("&quot;", "\"").replace("&#x27;", "'").replace("&#39;", "'")
+                .replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&");
+    }
+
+    /** Location of an HTTP redirect from url, or url itself when it does not redirect. */
+    private static String redirectTarget(String url) throws IOException {
+        HttpURLConnection http = (HttpURLConnection) new URL(url).openConnection();
+        try {
+            http.setInstanceFollowRedirects(false);
+            http.setConnectTimeout(20_000);
+            http.setReadTimeout(20_000);
+            http.setRequestProperty("User-Agent", DESKTOP_UA);
+            String location = http.getResponseCode() / 100 == 3 ? http.getHeaderField("Location") : null;
+            return location == null ? url : new URL(new URL(url), location).toString();
+        } finally {
+            http.disconnect();
         }
     }
 

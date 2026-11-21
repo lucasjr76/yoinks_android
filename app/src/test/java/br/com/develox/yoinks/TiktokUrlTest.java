@@ -51,6 +51,27 @@ public class TiktokUrlTest {
         assertTrue(MainActivity.threadsVideoUrls("<html></html>", "POST1").isEmpty());
     }
 
+    @Test public void findsRedditPostIds() {
+        assertEquals("6rrwyj", MainActivity.redditPostId(
+                "https://www.reddit.com/r/videos/comments/6rrwyj/that_small_heart_attack/"));
+        assertEquals("6rrwyj", MainActivity.redditPostId("https://old.reddit.com/comments/6rrwyj"));
+        assertEquals("abc123", MainActivity.redditPostId("https://redd.it/abc123"));
+        assertNull(MainActivity.redditPostId("https://www.reddit.com/r/videos/s/AbCdEf"));
+        assertNull(MainActivity.redditPostId("https://v.redd.it/zv89llsvexdz"));
+    }
+
+    @Test public void readsRedditMediaFromEmbedPage() {
+        String video = "<shreddit-screenview-data data=\"{&quot;post&quot;:{&quot;id&quot;:&quot;t3_6rrwyj&quot;,"
+                + "&quot;url&quot;:&quot;https://v.redd.it/zv89llsvexdz&quot;,&quot;type&quot;:&quot;video&quot;}}\">";
+        assertEquals("https://v.redd.it/zv89llsvexdz", MainActivity.redditMediaUrl(video));
+        String gif = video.replace("https://v.redd.it/zv89llsvexdz", "https://i.redd.it/x1y2.gif")
+                .replace("video", "image");
+        assertEquals("https://i.redd.it/x1y2.gif", MainActivity.redditMediaUrl(gif));
+        String photo = gif.replace("x1y2.gif", "x1y2.jpg");
+        assertNull(MainActivity.redditMediaUrl(photo));
+        assertNull(MainActivity.redditMediaUrl("<html></html>"));
+    }
+
     @Test public void comparesReleaseTagWithAppVersion() {
         assertTrue(MainActivity.isNewer("v0.4.0", "0.3.0"));
         assertTrue(MainActivity.isNewer("v0.3.1", "0.3.0"));

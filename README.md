@@ -5,7 +5,8 @@
 An Android initiative based on [Yoinks by Pablo Stanley](https://github.com/pablostanley/yoinks)
 ("yoink any video from your terminal"). It brings the same idea to the phone:
 download an MP4 video or extract an MP3 audio track with yt-dlp and FFmpeg,
-running entirely on the device. It also saves the images of TikTok photo posts and downloads Threads videos.
+running entirely on the device. It also saves the images of TikTok photo posts and downloads Threads videos and Reddit
+videos and GIFs.
 
 This is an independent project. It is not affiliated with or endorsed by the
 original Yoinks author.
