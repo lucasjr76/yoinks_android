@@ -1,5 +1,5 @@
 # Yoinks Android
-## Especificação funcional e técnica · v0.6.0
+## Especificação funcional e técnica · v0.6.1
 
 [English](SPECIFICATION.md) · **Português**
 
@@ -40,7 +40,7 @@ de download e inclui uma camada monocromática para launchers compatíveis.
 | --- | --- |
 | App | Java 17, Activity e layouts XML nativos. Pacote `br.com.develox.yoinks`. |
 | Android | API mínima 29, alvo 34, compilação com SDK 35. O APK ARM64 é o pacote de teste para celular. O projeto Gradle também inclui x86_64. |
-| Motor | `youtubedl-android 0.18.1` com yt-dlp 2026.10.26, runtime Python 3.12 e FFmpeg empacotados. |
+| Motor | `youtubedl-android 0.18.1` com yt-dlp 2026.11.23, runtime Python 3.12 e FFmpeg empacotados. |
 | Execução | Executor de uma thread por tela. O download ocorre em diretório temporário no cache do app. |
 | Publicação | `MediaStore.Downloads`, com registro pendente durante a cópia. Em caso de erro durante a publicação, remove o registro criado. |
 | Permissões | `INTERNET` para o download. A publicação pelo MediaStore dispensa acesso amplo ao armazenamento. |

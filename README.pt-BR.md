@@ -66,13 +66,13 @@ chave, a build de release sai sem assinatura; use a build de depuração.
 ## Motor yt-dlp
 
 O recurso `app/src/main/res/raw/ytdlp` substitui a cópia padrão da biblioteca
-pela versão portátil [2026.10.26](https://github.com/yt-dlp/yt-dlp/releases/tag/2026.10.26).
+pela versão portátil [2026.11.23](https://github.com/yt-dlp/yt-dlp/releases/tag/2026.11.23).
 Ao trocar esse arquivo, atualize também `BUNDLED_YTDLP` em `MainActivity.java`,
 para que as instalações existentes passem a usar a nova cópia. O SHA-256 do
 arquivo corresponde ao publicado na release:
 
 ```text
-e51e69e89489f199530f13d32a4342da3ddb2cf34842f364603a066db05afbf3
+e8665ed64d6b9172773e812f891fb707a0cb1ee8d9ef4fc1acb00cabee4c5256
 ```
 
 ## Licenças

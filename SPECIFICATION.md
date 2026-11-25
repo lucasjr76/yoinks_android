@@ -1,5 +1,5 @@
 # Yoinks Android
-## Functional and technical specification · v0.6.0
+## Functional and technical specification · v0.6.1
 
 **English** · [Português](ESPECIFICACAO.md)
 
@@ -41,7 +41,7 @@ text is in Portuguese.
 | --- | --- |
 | App | Java 17, Activity and native XML layouts. Package `br.com.develox.yoinks`. |
 | Android | Minimum API 29, target 34, compiled with SDK 35. The ARM64 APK is the phone test package. The Gradle project also includes x86_64. |
-| Engine | `youtubedl-android 0.18.1` with yt-dlp 2026.10.26, bundled Python 3.12 runtime and FFmpeg. |
+| Engine | `youtubedl-android 0.18.1` with yt-dlp 2026.11.23, bundled Python 3.12 runtime and FFmpeg. |
 | Execution | One single-thread executor per screen. Downloads go to a temporary directory in the app cache. |
 | Publishing | `MediaStore.Downloads`, with a pending entry during the copy. If publishing fails, the created entry is removed. |
 | Permissions | `INTERNET` for downloading. Publishing through MediaStore needs no broad storage access. |

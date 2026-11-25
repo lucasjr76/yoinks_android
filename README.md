@@ -65,13 +65,13 @@ the key, the release build is unsigned; use the debug build instead.
 ## yt-dlp engine
 
 The resource `app/src/main/res/raw/ytdlp` replaces the library's default copy
-with the portable [2026.10.26](https://github.com/yt-dlp/yt-dlp/releases/tag/2026.10.26)
+with the portable [2026.11.23](https://github.com/yt-dlp/yt-dlp/releases/tag/2026.11.23)
 build. When replacing this file, also update `BUNDLED_YTDLP` in
 `MainActivity.java`, so existing installs switch to the new copy. Its SHA-256
 matches the one published in the release:
 
 ```text
-e51e69e89489f199530f13d32a4342da3ddb2cf34842f364603a066db05afbf3
+e8665ed64d6b9172773e812f891fb707a0cb1ee8d9ef4fc1acb00cabee4c5256
 ```
 
 ## Licenses

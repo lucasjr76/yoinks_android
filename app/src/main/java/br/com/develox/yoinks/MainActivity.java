@@ -101,7 +101,7 @@ public final class MainActivity extends Activity {
             "Accept-Language", "en-us,en;q=0.5",
             "Sec-Fetch-Mode", "navigate"};
     // Version of app/src/main/res/raw/ytdlp; bump it together with that file.
-    private static final String BUNDLED_YTDLP = "2026.10.26";
+    private static final String BUNDLED_YTDLP = "2026.11.23";
     private static boolean engineChecked;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private EditText link;
